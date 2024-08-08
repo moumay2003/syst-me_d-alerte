@@ -15,8 +15,24 @@ from django.db.models import Count
 from django.db.models.functions import TruncHour
 from .forcasting import generate_forecast
 
+# views.py
+import pyodbc
+from django.shortcuts import render
+
 def index(request):
-    return render(request, 'index2.html')    
+    # Connexion à la base de données SQL Server
+    conn_str = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=.;DATABASE=stage4;UID=sa;PWD=May2015++'
+    conn = pyodbc.connect(conn_str)
+
+    # Créer un curseur
+    cursor = conn.cursor()
+
+    # Exécuter une requête SQL pour récupérer les 50 dernières lignes
+    cursor.execute("SELECT TOP 50 * FROM transactionsmain2 ORDER BY date DESC")
+    rows = cursor.fetchall()
+
+    # Passer les résultats au template
+    return render(request, 'index2.html', {'rows': rows})    
 
 def forecast_view(request):
     context = {}
@@ -257,3 +273,20 @@ def plot_operations_per_hour(date, service_id, conn):
     image_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     buf.close()
     return image_base64
+import pyodbc
+from django.shortcuts import render
+
+def my_view(request):
+    # Connexion à la base de données SQL Server
+    conn_str = 'DRIVER={ODBC Driver 17 for SQL Server};SERVER=.;DATABASE=stage2;UID=sa;PWD=May2015++'
+    conn = pyodbc.connect(conn_str)
+
+    # Créer un curseur
+    cursor = conn.cursor()
+
+    # Exécuter une requête SQL pour récupérer les 50 dernières lignes
+    cursor.execute("SELECT TOP 50 * FROM transactionsmain2 ORDER BY ID DESC")
+    rows = cursor.fetchall()
+
+    # Passer les résultats au template
+    return render(request, 'index2.html', {'rows': rows})
