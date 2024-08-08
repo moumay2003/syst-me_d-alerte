@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyse des Opérations par Service</title>
+    <style>
+        :root {
+            --primary-blue: #1e90ff;
+            --secondary-blue: #4169e1;
+            --light-blue: #e6f2ff;
+            --dark-blue: #00008b;
+            --text-color: #333;
+            --background-color: #f0f8ff;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: var(--dark-blue);
+        }
+        form {
+            background-color: var(--light-blue);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--dark-blue);
+        }
+        input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid var(--primary-blue);
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: var(--primary-blue);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        input[type="submit"]:hover {
+            background-color: var(--secondary-blue);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--light-blue);
+        }
+        th {
+            background-color: var(--primary-blue);
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: var(--light-blue);
+        }
+        .error {
+            color: #d8000c;
+            background-color: #ffd2d2;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #4f8a10;
+            background-color: #dff2bf;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            background-color: var(--light-blue);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+            transition: transform 0.3s;
+        }
+        .stat-box:hover {
+            transform: translateY(-5px);
+        }
+        .stat-box h3 {
+            margin-top: 0;
+            color: var(--dark-blue);
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-blue);
+        }
+        .chart-container {
+            margin-top: 30px;
+            height: 300px;
+        }
+        .graph-container {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .graph-image {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Analyse des Opérations par Service</h1>
+        
+        <form method="post">
+            {% csrf_token %}
+            <label for="service_id">ID du service :</label>
+            <input type="number" id="service_id" name="service_id" required>
+            
+            <label for="date">Date d'analyse :</label>
+            <input type="date" id="date" name="date" required>
+            
+            <input type="submit" name="analyse" value="Analyser les opérations">
+            <input type="submit" name="analyse_graphique" value="Analyse graphique">
+        </form>
+
+        {% if error %}
+            <div class="error">
+                <p>{{ error }}</p>
+            </div>
+        {% elif resultats %}
+            <div class="success">
+                <p>Analyse effectuée avec succès pour le service {{ resultats.0.1 }} à la date du {{ resultats.0.0|date:"d/m/Y" }}</p>
+            </div>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <h3>Total des opérations</h3>
+                    <div class="stat-value">{{ total_operations }}</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Moyenne des opérations</h3>
+                    <div class="stat-value">{{ moyenne_operations|floatformat:2 }}</div>
+                </div>
+                <div class="stat-box">
+                    <h3>Écart maximal</h3>
+                    <div class="stat-value">{{ ecart_max|floatformat:2 }}</div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="operationsChart"></canvas>
+            </div>
+
+            <h2>Détail des résultats</h2>
+            <table>
+                <tr>
+                    <th>Heure</th>
+                    <th>Nombre d'opérations</th>
+                    <th>Moyenne d'opérations</th>
+                    <th>Différence</th>
+                </tr>
+                {% for resultat in resultats %}
+                    <tr>
+                        <td>{{ resultat.2 }}h</td>
+                        <td>{{ resultat.3 }}</td>
+                        <td>{{ resultat.4|floatformat:2 }}</td>
+                        <td>{{ resultat.5|floatformat:2 }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
+
+            {% if graph_image %}
+                <div class="graph-container">
+                    <h2>Analyse Graphique</h2>
+                    <img src="data:image/png;base64,{{ graph_image }}" alt="Graphique des opérations" class="graph-image">
+                </div>
+            {% endif %}
+
+            <script>
+                var ctx = document.getElementById('operationsChart').getContext('2d');
+                var chart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [{% for resultat in resultats %}'{{ resultat.2 }}h',{% endfor %}],
+                        datasets: [{
+                            label: 'Nombre d'opérations',
+                            data: [{% for resultat in resultats %}{{ resultat.3 }},{% endfor %}],
+                            borderColor: '#1e90ff',
+                            backgroundColor: 'rgba(30, 144, 255, 0.1)',
+                        }, {
+                            label: 'Moyenne d'opérations',
+                            data: [{% for resultat in resultats %}{{ resultat.4|floatformat:2 }},{% endfor %}],
+                            borderColor: '#4169e1',
+                            backgroundColor: 'rgba(65, 105, 225, 0.1)',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            </script>
+        {% endif %}
+    </div>
+</body>
+</html>
