@@ -296,7 +296,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import pyodbc
-from .task import load_data_from_sql, fit_arima_model, predict_future, save_model,model_exists,load_model
+from .task import load_data_from_sql, fit_arima_model, predict_future, save_model,model_exists,load_model,calculate_errors
 import matplotlib.pyplot as plt
 import io
 import base64
@@ -312,18 +312,14 @@ def get_services():
 def should_generate_new_model(last_generated_time):
     """Vérifie si 30 minutes se sont écoulées depuis la dernière génération du modèle."""
     return datetime.now() - last_generated_time > timedelta(minutes=30)
-
 @csrf_exempt
 def forecast_view2(request):
     if request.method == 'POST':
         id_service = request.POST.get('id_service')
-        
         try:
-            # Charger le modèle existant si disponible
             if model_exists(id_service):
                 fitted_model, model_date = load_model(id_service)
                 if should_generate_new_model(model_date):
-                    # Générer un nouveau modèle si 30 minutes sont passées
                     data = load_data_from_sql(id_service)
                     data_series = data['nombre_operations']
                     fitted_model = fit_arima_model(data_series)
@@ -331,18 +327,15 @@ def forecast_view2(request):
                     message = f"Nouveau modèle généré pour le service {id_service}."
                 else:
                     message = f"Le modèle existant pour le service {id_service} est encore récent (généré le {model_date})."
-                    # Charger les données pour le graphe
-                    data = load_data_from_sql(id_service)
-                    data_series = data['nombre_operations']
+                data = load_data_from_sql(id_service)
+                data_series = data['nombre_operations']
             else:
-                # Charger les données et générer un nouveau modèle
                 data = load_data_from_sql(id_service)
                 data_series = data['nombre_operations']
                 fitted_model = fit_arima_model(data_series)
                 save_model(fitted_model, id_service)
                 message = f"Nouveau modèle généré pour le service {id_service}."
-            
-            # Faire des prévisions et générer le graphe
+
             forecast_mean, confidence_intervals = predict_future(fitted_model)
             
             plt.figure(figsize=(10, 5))
@@ -363,11 +356,20 @@ def forecast_view2(request):
             image_png = buffer.getvalue()
             buffer.close()
             graphic = base64.b64encode(image_png).decode('utf-8')
-            
-            return JsonResponse({'status': 'success', 'graphic': graphic, 'message': message})
-        
+
+            # Calculer les erreurs
+            true_values = data_series[-len(forecast_mean):]
+            mae, rmse = calculate_errors(true_values, forecast_mean)
+
+            return JsonResponse({
+                'status': 'success',
+                'graphic': graphic,
+                'message': message,
+                'mae': mae,
+                'rmse': rmse
+            })
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)})
-    
+
     services = get_services()
     return render(request, 'forecast2.html', {'services': services})

@@ -8,9 +8,9 @@ urlpatterns = [
      
       path('mm', views.forecast_view, name='forecast'),
       path('/i', views.plot_operations, name='plot_operations'),
-      path('dd', views.index, name='index'),
+      path('', views.index, name='index'),
       path('r', views.resultats_comparaison, name='resultats_comparaison'),
-      path('', views.forecast_view2, name='forecast2'),
+      path('f', views.forecast_view2, name='forecast2'),
      
      
 

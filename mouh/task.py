@@ -103,3 +103,8 @@ def clean_old_models(days=7):
             if (now - file_modified).days > days:
                 os.remove(file_path)
                 print(f"Ancien modèle supprimé : {file_path}")
+
+def calculate_errors(true_values, predicted_values):
+    mae = mean_absolute_error(true_values, predicted_values)
+    rmse = np.sqrt(mean_squared_error(true_values, predicted_values))
+    return mae, rmse

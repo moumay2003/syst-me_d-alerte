@@ -6,82 +6,165 @@
     <title>Prévisions des opérations</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        h1 { color: #333; }
-        select, button { margin: 10px 0; padding: 5px; }
-        #result { margin-top: 20px; }
-        #graphic { max-width: 100%; height: auto; }
-        #error-message, #exists-message { color: red; margin-top: 10px; }
-        #loading { margin-top: 10px; color: blue; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #0056b3;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        #forecast-form {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #0056b3;
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #0056b3;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #0056b3;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #003d82;
+        }
+        #loading, #error-message, #exists-message {
+            text-align: center;
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        #loading {
+            background-color: #e6f3ff;
+            color: #0056b3;
+        }
+        #error-message {
+            background-color: #ffe6e6;
+            color: #d9534f;
+        }
+        #exists-message {
+            background-color: #e6ffe6;
+            color: #5cb85c;
+        }
+        #forecast-result {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        #forecast-graph {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        #error-metrics {
+            margin-top: 20px;
+            background-color: #e6f3ff;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        #error-metrics h3 {
+            color: #0056b3;
+            margin-top: 0;
+        }
     </style>
 </head>
 <body>
-    <h1>Prévisions des opérations</h1>
-
-    <form id="forecast-form">
-        {% csrf_token %}
-        <label for="id_service">Sélectionnez un service :</label>
-        <select id="id_service" name="id_service" required>
-            <option value="">--Choisissez un service--</option>
-            {% for service in services %}
-                <option value="{{ service.id }}">{{ service.name }}</option>
-            {% endfor %}
-        </select>
-        <button type="submit">Générer les prévisions</button>
-    </form>
-
-    <div id="loading" style="display: none;">
-        Chargement en cours...
+    <div class="container">
+        <h1>Prévisions des opérations</h1>
+        <form id="forecast-form">
+            {% csrf_token %}
+            <label for="id_service">Sélectionnez un service :</label>
+            <select id="id_service" name="id_service" required>
+                <option value="">--Choisissez un service--</option>
+                {% for service in services %}
+                    <option value="{{ service.id }}">{{ service.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Générer les prévisions</button>
+        </form>
+        <div id="loading" style="display: none;">
+            Chargement en cours...
+        </div>
+        <div id="error-message" style="display: none;"></div>
+        <div id="exists-message" style="display: none;"></div>
+        <div id="forecast-result">
+            <img id="forecast-graph" src="" alt="Graphe des prévisions" style="display: none;">
+            <div id="error-metrics" style="display: none;">
+                <h3>Métriques d'erreur :</h3>
+                <p>MAE (Erreur Absolue Moyenne) : <span id="mae-value"></span></p>
+                <p>RMSE (Racine de l'Erreur Quadratique Moyenne) : <span id="rmse-value"></span></p>
+            </div>
+        </div>
     </div>
-
-    <div id="error-message" style="display: none;">
-    </div>
-
-    <div id="exists-message" style="display: none;">
-    </div>
-
-    <div id="forecast-result">
-        <img id="forecast-graph" src="" alt="Graphe des prévisions" style="display: none;">
-    </div>
-
     <script>
-    document.getElementById('forecast-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        const loadingDiv = document.getElementById('loading');
-        const errorDiv = document.getElementById('error-message');
-        const existsDiv = document.getElementById('exists-message');
-        const graphImg = document.getElementById('forecast-graph');
-        
-        loadingDiv.style.display = 'block';
-        errorDiv.style.display = 'none';
-        existsDiv.style.display = 'none';
-        graphImg.style.display = 'none';
-        
-        fetch('{% url "forecast2" %}', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            loadingDiv.style.display = 'none';
-            if (data.status === 'success') {
-                existsDiv.textContent = data.message; // Afficher le message concernant le modèle existant ou nouveau
-                existsDiv.style.display = 'block';
-                graphImg.src = 'data:image/png;base64,' + data.graphic;
-                graphImg.style.display = 'block';
-            } else {
-                errorDiv.textContent = "Erreur : " + data.message;
+        document.getElementById('forecast-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error-message');
+            const existsDiv = document.getElementById('exists-message');
+            const graphImg = document.getElementById('forecast-graph');
+            const errorMetricsDiv = document.getElementById('error-metrics');
+            
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            existsDiv.style.display = 'none';
+            graphImg.style.display = 'none';
+            errorMetricsDiv.style.display = 'none';
+
+            fetch('{% url "forecast2" %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingDiv.style.display = 'none';
+                if (data.status === 'success') {
+                    existsDiv.textContent = data.message;
+                    existsDiv.style.display = 'block';
+                    graphImg.src = 'data:image/png;base64,' + data.graphic;
+                    graphImg.style.display = 'block';
+                    
+                    // Afficher les métriques d'erreur
+                    document.getElementById('mae-value').textContent = data.mae.toFixed(4);
+                    document.getElementById('rmse-value').textContent = data.rmse.toFixed(4);
+                    errorMetricsDiv.style.display = 'block';
+                } else {
+                    errorDiv.textContent = "Erreur : " + data.message;
+                    errorDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = "Erreur lors de la requête : " + error.message;
                 errorDiv.style.display = 'block';
-            }
-        })
-        .catch(error => {
-            loadingDiv.style.display = 'none';
-            errorDiv.textContent = "Erreur lors de la requête : " + error.message;
-            errorDiv.style.display = 'block';
+            });
         });
-    });
     </script>
 </body>
 </html>
